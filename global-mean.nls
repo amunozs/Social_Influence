@@ -1,0 +1,7 @@
+breed [global-means global-mean]
+
+to setup-global-means
+  set color yellow
+  set size 1.5
+  set shape "circle"
+end

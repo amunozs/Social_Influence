@@ -1,0 +1,76 @@
+breed [groups group]
+
+groups-own
+[
+  group-number
+  modularity
+  cohesion
+]
+
+to setup-group
+  set color orange
+  ;start invisible bevause initially we have no xcor and ycor. On get-group-mean it is set to size 1
+  set size 0 
+  set shape "circle"
+  set xcor 0
+  set ycor 0
+end
+
+to get-group-modularity
+; Ignore the total voters gtroup (0)
+  if group-number > 0 [
+    
+    let this-group-number group-number 
+    let voters-in-group voters with [v_group-number = this-group-number]
+    
+    if count voters-in-group > 0[
+      let total-distance 0
+      let group_xcor xcor
+      let group_ycor ycor
+      
+      ask voters-in-group[
+        set total-distance total-distance + distancexy group_xcor group_ycor
+      ]
+      
+      let voters-count count voters with [v_group-number = this-group-number]
+      set modularity total-distance / voters-count
+      set cohesion (1 - sqrt(modularity / max-modularity))
+      
+      let transfer-cohesion cohesion
+      let transfer-modularity modularity
+      
+      ask voters-in-group[
+        set total-distance total-distance + distancexy xcor ycor
+        set v_group-cohesion transfer-cohesion
+        set v_group-modularity transfer-modularity
+      ]
+    ]
+  ]
+end
+
+to get-group-mean
+  set size 1
+  let xtotal 0
+  let ytotal 0
+  let current-groupx 0
+  let current-groupy 0
+  let this-group-number group-number
+  if count voters with [v_group-number = this-group-number] > 0 [
+    ask voters with [v_group-number = this-group-number] [
+      set xtotal xtotal + xcor
+      set ytotal ytotal + ycor
+    ]
+
+    let num-voters count voters with [v_group-number = this-group-number]
+
+    set current-groupx xtotal / num-voters
+    set current-groupy ytotal / num-voters
+    set xcor current-groupx
+    set ycor current-groupy
+
+    ask voters with [v_group-number = this-group-number] [
+      set v_groupx current-groupx
+      set v_groupy current-groupy
+    ]
+  ]
+end

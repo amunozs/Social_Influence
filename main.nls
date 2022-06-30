@@ -1,0 +1,103 @@
+globals
+[
+  current
+  initial-mean
+  mean-movement
+  initial-meanx
+  initial-meany
+  meanx
+  meany
+  total-modularity
+  mean-cohesion
+  social-radicalization
+  max-modularity ;we precalculate it for not doing it ever loop, it keeps constant.
+  max-radicalization ;we precalculate it for not doing it ever loop, it keeps constant.
+  total-movers
+  num-groups
+  others-distance
+  initial-social-radicalization
+  initial-others-distance
+]
+
+to setup
+  set current 0
+  clear-all
+  setup-voters
+  setup-links
+  get-voters-mean
+  set initial-meanx meanx
+  set initial-meany meany
+  set mean-movement 0
+  set mean-cohesion 0
+  set social-radicalization 0
+  
+; set initial social radicalizatio
+  let total 0
+  ask voters [
+    set total total + distancexy 0 0
+  ]
+  set initial-social-radicalization (total / number)
+  
+  ; Calculate the max-modularity and the max-radicalization in
+  ; so we can use it without calculating it every iteration 
+  set max-modularity sqrt(max-pxcor * max-pxcor + max-pycor * max-pycor)
+  
+  ; Using pithagoras and assuming max-pxcor = max-pycor
+  set max-radicalization sqrt(2) * max-pxcor 
+  reset-ticks
+  create-global-means 1 [
+    setup-global-means
+  ]
+  set others-distance 0
+  set initial-others-distance 0
+  set initial-others-distance get-others-dist
+  ask patches [set pcolor white]
+end
+
+to setup-voters
+  create-voters number [
+    setup-voter
+  ]
+end
+
+to setup-links
+  clear-links
+
+  ask voters [
+    if in-group? [
+      let current-group v_group-number
+      create-links-with other voters with [v_group-number = current-group]
+    ]
+  ]
+  ask links [
+    set color blue
+  ]
+end
+
+to go
+  
+  get-groups
+  get-group-means
+  
+  ask links [die]
+  if paint-links?[
+    setup-links
+  ]
+  get-groups-modularity
+  get-radicalization
+  move-voters
+  get-voters-mean
+  ;replace-voter
+  clear-groups
+  exit-group-voters
+  
+  if get-others-dist? [
+    set others-distance get-others-dist
+  ]
+  
+  if ticks = 399 [
+    set others-distance get-others-dist
+  ]
+  
+  tick
+end

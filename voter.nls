@@ -1,0 +1,209 @@
+breed [voters voter]
+
+voters-own
+[
+  extremism
+  influentiability
+  neighbours
+  in-group?
+  v_group-number
+  v_groupx
+  v_groupy
+  v_groupavg
+  v_group-cohesion
+  v_group-modularity
+  v_old-groups
+]
+
+to setup-voter ;; voter procedure
+  setxy random-xcor random-ycor
+  set extremism random-normal extremism-mean extremism-sd
+  if extremism > 100[
+    set extremism 100
+  ]
+  set influentiability random-normal influentiability-mean influentiability-sd
+  if influentiability > 100[
+    set influentiability 100
+  ]
+  color-voter;
+  set shape "default"
+  set size 1
+  set in-group? false
+  set v_group-number 0
+  set v_groupx 0
+  set v_groupy 0
+  set v_group-cohesion 0
+  set v_group-modularity 0
+  set v_old-groups []
+end
+
+to find-neighbours ;; voter procedure
+  set neighbours other voters in-radius vision with [not in-group?]
+end
+
+to color-voter ;; voter procedure
+  set color gray
+  if color-extremism? [
+    set color palette:scale-gradient [[0 255 0] [255 0 0]] extremism 0 100
+  ]
+  if color-influentiability? [
+    set color palette:scale-gradient [[0 255 0] [255 0 0]] influentiability 0 100
+  ]
+end
+
+to move-voter 
+  ;color-voter
+
+  let moved? false
+  ; Voters moving away from other groups. Represents the bidirectional polarization
+  if random 1000 < b-polarization% * v_group-cohesion[
+
+    if in-group?[
+ 
+      let xrepulsor 0
+      let yrepulsor 0
+      
+      ask one-of groups [
+        set xrepulsor xcor
+        set yrepulsor ycor
+      ]
+
+      facexy xrepulsor yrepulsor
+      left 180
+
+      set moved? true
+      move-forward true false
+    ]
+  ]
+
+  ; Voters moving away from the means. Represents the unidirectional polarization
+  if not moved? and (random 1000 < u-polarization% * v_group-cohesion)[
+    if in-group?[
+
+      ; Initial version for calculatng polarization: moving away from the mean
+      ; This was discarded because it lead to some weird behaviours
+      ;facexy 0 0
+      ;left 180
+      ;forward 1
+
+      ;calculate the unitary vector of unidirectional polarization
+      ;the direction in with the voter move is the direction of the group mean respect to the origin
+      let module sqrt ((v_groupx * v_groupx) + (v_groupy * v_groupy))
+      let unitx v_groupx / module
+      let unity v_groupy / module
+
+      ; add the unit vector to the position of the voter to calculate the direction
+      let directionx xcor + unitx
+      let directiony ycor + unity
+      facexy directionx directiony
+      move-forward true false
+    ]
+  ]
+
+
+  ; Voters attracted to the mean of the group. represents the group effect
+  if not moved? and (random 1000 < group-effect%)[
+    if in-group? [
+      facexy v_groupx v_groupy
+      move-forward false true
+    ]
+  ]
+
+  ; Social stability (move to mean)
+  if not moved? [
+    let modularity-factor 1
+
+    if in-group? [
+      set modularity-factor (1 - v_group-cohesion)
+    ]
+
+    ;let distance-to-mean distancexy meanx meany
+    ;let normalized-distance distance-to-mean / max-modularity
+
+    let norm-min-distance 0
+
+    let distance-to-edgex 0
+    let distance-to-edgey 0
+
+    ifelse xcor >= 0[
+      set distance-to-edgex max-pxcor - xcor
+    ][
+      set distance-to-edgex max-pxcor + xcor
+    ]
+
+    ifelse ycor >= 0
+    [
+      set distance-to-edgey max-pycor - ycor
+    ][
+      set distance-to-edgey max-pycor + ycor
+    ]
+
+    ifelse distance-to-edgex <= distance-to-edgey
+    [
+      let min-distance distance-to-edgex
+      set norm-min-distance min-distance / max-pxcor
+    ][
+      let min-distance distance-to-edgey
+      set norm-min-distance min-distance / max-pycor
+    ]
+
+    if random 1000 < social-stability% * modularity-factor * (1 - norm-min-distance)[
+      facexy meanx meany
+      move-forward false false
+    ]
+  ]
+
+  ; Move to a random direction. Represents voters changing opinion
+  if random 1000 < voters-random%[
+    left random 360
+    move-forward false false
+  ]
+end
+
+to move-forward [extremised influenced] ;; voter procedure
+  if extremised [
+   let rand random 100
+   let min-extremism 5
+   if (rand < extremism) or (rand < min-extremism)[
+      forward 1
+   ]
+  ]
+
+  if influenced [
+   let rand random 100
+   let min-influentiability 5
+   if (rand < influentiability) or (rand < min-influentiability)[
+      forward 1
+   ]
+  ]
+
+  if (not extremised) and (not influenced)
+  [
+   forward 1
+  ]
+
+end
+
+to exit-group?
+  if in-group? [
+    let dist distancexy v_groupx v_groupy
+    
+    ; Get the closeness to the center of the group.
+    ; To the poweer of 2 because in this case we have 2 dimensions and we want it to 
+    ; grow exponentially according to the distance defference
+    let closeness (dist / v_group-modularity) ^ 2 
+    
+    let rand random 1000
+    if rand < closeness * group-disgregation% and dist > vision[
+      set v_old-groups lput v_group-number v_old-groups
+      set in-group? false
+      set v_group-number 0
+      set v_groupx 0
+      set v_groupy 0
+      set v_group-cohesion 0
+      set v_group-modularity 0
+      
+    ]
+  ]
+end
+
